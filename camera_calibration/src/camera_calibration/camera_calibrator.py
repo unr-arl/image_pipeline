@@ -39,7 +39,12 @@ import os
 import rospy
 import sensor_msgs.msg
 import sensor_msgs.srv
+import message_filters
+from message_filters import ApproximateTimeSynchronizer
+
+from collections import deque
 import threading
+import functools
 import time
 from camera_calibration.calibrator import MonoCalibrator, StereoCalibrator, ChessboardInfo, Patterns
 from collections import deque
@@ -112,9 +117,13 @@ class CalibrationNode:
         self._checkerboard_flags = checkerboard_flags
         self._pattern = pattern
         self._camera_name = camera_name
-        lsub = message_filters.Subscriber('left', sensor_msgs.msg.Image)
-        rsub = message_filters.Subscriber('right', sensor_msgs.msg.Image)
-        ts = synchronizer([lsub, rsub], 4)
+        lsub = message_filters.Subscriber('/ptgrey_node/left/image_raw', sensor_msgs.msg.Image)
+        rsub = message_filters.Subscriber('/ptgrey_node/right/image_raw', sensor_msgs.msg.Image)
+        #tung "tung-topic-name"
+        psub = message_filters.Subscriber("/velodyne_points", sensor_msgs.msg.PointCloud2)
+        #tung: let point-cloud is a main sensor
+        #tung: change to approximate time to synchnize with LIDAR "tung-sync-time"
+        ts = message_filters.ApproximateTimeSynchronizer([psub, lsub, rsub], 10, 0.05)
         ts.registerCallback(self.queue_stereo)
 
         msub = message_filters.Subscriber('image', sensor_msgs.msg.Image)
@@ -148,8 +157,11 @@ class CalibrationNode:
     def queue_monocular(self, msg):
         self.q_mono.append(msg)
 
-    def queue_stereo(self, lmsg, rmsg):
-        self.q_stereo.append((lmsg, rmsg))
+    def queue_stereo(self, pmsg, lmsg, rmsg):
+				#tung: debug/NOTE: should check timestamp here!!!!!!!!!
+				#print("Save data to database")
+				#tung: reverse order to follow original source code
+				self.q_stereo.append((lmsg, rmsg, pmsg))
 
     def handle_monocular(self, msg):
         if self.c == None:

@@ -47,6 +47,8 @@ import random
 import sensor_msgs.msg
 import tarfile
 import time
+import sensor_msgs.point_cloud2
+
 from distutils.version import LooseVersion
 
 
@@ -770,7 +772,7 @@ class MonoCalibrator(Calibrator):
                 if self.is_good_sample(params):
                     self.db.append((params, gray))
                     self.good_corners.append((corners, board))
-                    print(("*** Added sample %d, p_x = %.3f, p_y = %.3f, p_size = %.3f, skew = %.3f" % tuple([len(self.db)] + params)))
+                    print(("*** [TUNG] Added sample %d, p_x = %.3f, p_y = %.3f, p_size = %.3f, skew = %.3f" % tuple([len(self.db)] + params)))
 
         rv = MonoDrawable()
         rv.scrib = scrib
@@ -1033,7 +1035,8 @@ class StereoCalibrator(Calibrator):
 
     def handle_msg(self, msg):
         # TODO Various asserts that images have same dimension, same board detected...
-        (lmsg, rmsg) = msg
+        #tung
+        (lmsg, rmsg, pmsg) = msg 
         lgray = self.mkgray(lmsg)
         rgray = self.mkgray(rmsg)
         epierror = -1
@@ -1089,9 +1092,10 @@ class StereoCalibrator(Calibrator):
             if lcorners is not None and rcorners is not None and len(lcorners) == len(rcorners):
                 params = self.get_parameters(lcorners, lboard, (lgray.shape[1], lgray.shape[0]))
                 if self.is_good_sample(params):
-                    self.db.append( (params, lgray, rgray) )
+		                #tung
+                    self.db.append( (params, lgray, rgray, pmsg) ) 
                     self.good_corners.append( (lcorners, rcorners, lboard) )
-                    print(("*** Added sample %d, p_x = %.3f, p_y = %.3f, p_size = %.3f, skew = %.3f" % tuple([len(self.db)] + params)))
+                    print(("*** [TUNG] Added sample %d, p_x = %.3f, p_y = %.3f, p_size = %.3f, skew = %.3f" % tuple([len(self.db)] + params)))
 
         rv = StereoDrawable()
         rv.lscrib = lscrib
@@ -1117,9 +1121,9 @@ class StereoCalibrator(Calibrator):
 
     def do_tarfile_save(self, tf):
         """ Write images and calibration solution to a tarfile object """
-        ims = ([("left-%04d.png"  % i, im) for i,(_, im, _) in enumerate(self.db)] +
-               [("right-%04d.png" % i, im) for i,(_, _, im) in enumerate(self.db)])
-
+        ims = ([("%010d-l.png"  % i, im) for i,(_, im, _, _) in enumerate(self.db)] +
+               [("%010d-r.png" % i, im) for i,(_, _, im, _) in enumerate(self.db)])
+        
         def taradd(name, buf):
             if isinstance(buf, basestring):
                 s = StringIO(buf)
@@ -1133,6 +1137,19 @@ class StereoCalibrator(Calibrator):
 
         for (name, im) in ims:
             taradd(name, cv2.imencode(".png", im)[1].tostring())
+        
+        #tung
+        #tung
+        pcl = [("%010d.xyz"  % i, pl) for i,(_, _, _, pl) in enumerate(self.db)] 
+        for (name, pl) in pcl:
+						s = ''
+						for point in sensor_msgs.point_cloud2.read_points(pl, skip_nans=True):
+								pt_x = point[0]
+								pt_y = point[1]
+								pt_z = point[2]
+								s = s + str(pt_x) + ' ' + str(pt_y) + ' ' + str(pt_z) + '\n'
+						taradd(name, s)
+            
         taradd('left.yaml', self.yaml("/left", self.l))
         taradd('right.yaml', self.yaml("/right", self.r))
         taradd('ost.txt', self.ost())
