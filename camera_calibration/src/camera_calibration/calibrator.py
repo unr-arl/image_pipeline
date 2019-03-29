@@ -734,7 +734,8 @@ class MonoCalibrator(Calibrator):
 
         Returns a MonoDrawable message with the display image and progress info.
         """
-        gray = self.mkgray(msg)
+        (mmsg, pmsg) = msg
+        gray = self.mkgray(mmsg)
         linear_error = -1
 
         # Get display-image-to-be (scrib) and detection of the calibration target
@@ -770,7 +771,7 @@ class MonoCalibrator(Calibrator):
                 # Add sample to database only if it's sufficiently different from any previous sample.
                 params = self.get_parameters(corners, board, (gray.shape[1], gray.shape[0]))
                 if self.is_good_sample(params):
-                    self.db.append((params, gray))
+                    self.db.append((params, gray, pmsg))
                     self.good_corners.append((corners, board))
                     print(("*** [TUNG] Added sample %d, p_x = %.3f, p_y = %.3f, p_size = %.3f, skew = %.3f" % tuple([len(self.db)] + params)))
 
@@ -810,11 +811,23 @@ class MonoCalibrator(Calibrator):
             ti.mtime = int(time.time())
             tf.addfile(tarinfo=ti, fileobj=s)
 
-        ims = [("left-%04d.png" % i, im) for i,(_, im) in enumerate(self.db)]
+        ims = [("%010d-l.png" % i, im) for i,(_, im, _) in enumerate(self.db)]
         for (name, im) in ims:
             taradd(name, cv2.imencode(".png", im)[1].tostring())
-        taradd('ost.yaml', self.yaml())
-        taradd('ost.txt', self.ost())
+        # HUAN
+        # tung
+        pcl = [("%010d.xyz"  % i, pl) for i,(_, _, pl) in enumerate(self.db)] 
+        for (name, pl) in pcl:
+						s = ''
+						for point in sensor_msgs.point_cloud2.read_points(pl, skip_nans=True):
+								pt_x = point[0]
+								pt_y = point[1]
+								pt_z = point[2]
+								s = s + str(pt_x) + ' ' + str(pt_y) + ' ' + str(pt_z) + '\n'
+						taradd(name, s)
+        # HUAN
+        #taradd('ost.yaml', self.yaml())
+        #taradd('ost.txt', self.ost())
 
     def do_tarfile_calibration(self, filename):
         archive = tarfile.open(filename, 'r')
@@ -1113,7 +1126,9 @@ class StereoCalibrator(Calibrator):
         self.size = (self.db[0][1].shape[1], self.db[0][1].shape[0]) # TODO Needs to be set externally
         self.l.size = self.size
         self.r.size = self.size
+        #HUAN
         self.cal_fromcorners(self.good_corners)
+        #print("Remove calibration step")
         self.calibrated = True
         # DEBUG
         print((self.report()))

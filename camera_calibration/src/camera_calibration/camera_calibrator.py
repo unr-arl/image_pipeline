@@ -117,17 +117,18 @@ class CalibrationNode:
         self._checkerboard_flags = checkerboard_flags
         self._pattern = pattern
         self._camera_name = camera_name
-        lsub = message_filters.Subscriber('/ptgrey_node/left/image_raw', sensor_msgs.msg.Image)
-        rsub = message_filters.Subscriber('/ptgrey_node/right/image_raw', sensor_msgs.msg.Image)
+        lsub = message_filters.Subscriber('left', sensor_msgs.msg.Image)
+        rsub = message_filters.Subscriber('right', sensor_msgs.msg.Image)
         #tung "tung-topic-name"
-        psub = message_filters.Subscriber("/velodyne_points", sensor_msgs.msg.PointCloud2)
+        psub = message_filters.Subscriber("pcl", sensor_msgs.msg.PointCloud2)
         #tung: let point-cloud is a main sensor
         #tung: change to approximate time to synchnize with LIDAR "tung-sync-time"
         ts = message_filters.ApproximateTimeSynchronizer([psub, lsub, rsub], 10, 0.05)
         ts.registerCallback(self.queue_stereo)
 
         msub = message_filters.Subscriber('image', sensor_msgs.msg.Image)
-        msub.registerCallback(self.queue_monocular)
+        ts_mono = message_filters.ApproximateTimeSynchronizer([psub, msub], 10, 0.05)
+        ts_mono.registerCallback(self.queue_monocular)
 
         self.set_camera_info_service = rospy.ServiceProxy("%s/set_camera_info" % rospy.remap_name("camera"),
                                                           sensor_msgs.srv.SetCameraInfo)
@@ -154,8 +155,8 @@ class CalibrationNode:
     def redraw_monocular(self, *args):
         pass
 
-    def queue_monocular(self, msg):
-        self.q_mono.append(msg)
+    def queue_monocular(self, pmsg, msg):
+        self.q_mono.append((msg,pmsg))
 
     def queue_stereo(self, pmsg, lmsg, rmsg):
 				#tung: debug/NOTE: should check timestamp here!!!!!!!!!
@@ -251,7 +252,8 @@ class OpenCVCalibrationNode(CalibrationNode):
             if self.c.goodenough:
                 if 180 <= y < 280:
                     self.c.do_calibration()
-            if self.c.calibrated:
+            #HUAN
+            if True:#self.c.calibrated:
                 if 280 <= y < 380:
                     self.c.do_save()
                 elif 380 <= y < 480:
@@ -277,8 +279,8 @@ class OpenCVCalibrationNode(CalibrationNode):
     def buttons(self, display):
         x = self.displaywidth
         self.button(display[180:280,x:x+100], "CALIBRATE", self.c.goodenough)
-        self.button(display[280:380,x:x+100], "SAVE", self.c.calibrated)
-        self.button(display[380:480,x:x+100], "COMMIT", self.c.calibrated)
+        self.button(display[280:380,x:x+100], "SAVE", True)#self.c.calibrated)
+        self.button(display[380:480,x:x+100], "COMMIT", True)#self.c.calibrated)
 
     def y(self, i):
         """Set up right-size images"""
