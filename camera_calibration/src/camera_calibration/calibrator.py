@@ -162,7 +162,7 @@ def _get_corners(img, board, refine = True, checkerboard_flags=0):
             corners = numpy.copy(numpy.flipud(corners))
     else:
         direction_corners=(corners[-1]-corners[0])>=numpy.array([[0.0,0.0]])
-    
+
         if not numpy.all(direction_corners):
             if not numpy.any(direction_corners):
                 corners = numpy.copy(numpy.flipud(corners))
@@ -519,7 +519,7 @@ class Calibrator(object):
 
 def image_from_archive(archive, name):
     """
-    Load image PGM file from tar archive. 
+    Load image PGM file from tar archive.
 
     Used for tarfile loading and unit test.
     """
@@ -541,7 +541,7 @@ class MonoDrawable(ImageDrawable):
         ImageDrawable.__init__(self)
         self.scrib = None
         self.linear_error = -1.0
-                
+
 
 class StereoDrawable(ImageDrawable):
     def __init__(self):
@@ -596,10 +596,10 @@ class MonoCalibrator(Calibrator):
 
     def cal_fromcorners(self, good):
         """
-        :param good: Good corner positions and boards 
+        :param good: Good corner positions and boards
         :type good: [(corners, ChessboardInfo)]
 
-        
+
         """
         boards = [ b for (_, b) in good ]
 
@@ -816,14 +816,20 @@ class MonoCalibrator(Calibrator):
             taradd(name, cv2.imencode(".png", im)[1].tostring())
         # HUAN
         # tung
-        pcl = [("%010d.xyz"  % i, pl) for i,(_, _, pl) in enumerate(self.db)] 
+        pcl = [("%010d.xyz"  % i, pl) for i,(_, _, pl) in enumerate(self.db)]
         for (name, pl) in pcl:
 						s = ''
-						for point in sensor_msgs.point_cloud2.read_points(pl, skip_nans=True):
+						for point in sensor_msgs.point_cloud2.read_points(pl, field_names=['x', 'y', 'z', 'intensity'] , skip_nans=True):
 								pt_x = point[0]
 								pt_y = point[1]
 								pt_z = point[2]
-								s = s + str(pt_x) + ' ' + str(pt_y) + ' ' + str(pt_z) + '\n'
+								pt_i = point[3]
+								s = s + str(pt_x) + ' ' + str(pt_y) + ' ' + str(pt_z) +  ' ' + str(pt_i) + '\n'
+						# for point in sensor_msgs.point_cloud2.read_points(pl, skip_nans=True):
+						# 		pt_x = point[0]
+						# 		pt_y = point[1]
+						# 		pt_z = point[2]
+						# 		s = s + str(pt_x) + ' ' + str(pt_y) + ' ' + str(pt_z) + '\n'
 						taradd(name, s)
         # HUAN
         #taradd('ost.yaml', self.yaml())
@@ -901,7 +907,7 @@ class StereoCalibrator(Calibrator):
         lipts = [ l for (l, _, _) in good ]
         ripts = [ r for (_, r, _) in good ]
         boards = [ b for (_, _, b) in good ]
-        
+
         opts = self.mk_object_points(boards, True)
 
         flags = cv2.CALIB_FIX_INTRINSIC
@@ -945,7 +951,7 @@ class StereoCalibrator(Calibrator):
                          self.T,
                          self.l.R, self.r.R, self.l.P, self.r.P,
                          alpha = a)
-        
+
         cv2.initUndistortRectifyMap(self.l.intrinsics, self.l.distortion, self.l.R, self.l.P, self.size, cv2.CV_32FC1,
                                    self.l.mapx, self.l.mapy)
         cv2.initUndistortRectifyMap(self.r.intrinsics, self.r.distortion, self.r.R, self.r.P, self.size, cv2.CV_32FC1,
@@ -1049,7 +1055,7 @@ class StereoCalibrator(Calibrator):
     def handle_msg(self, msg):
         # TODO Various asserts that images have same dimension, same board detected...
         #tung
-        (lmsg, rmsg, pmsg) = msg 
+        (lmsg, rmsg, pmsg) = msg
         lgray = self.mkgray(lmsg)
         rgray = self.mkgray(rmsg)
         epierror = -1
@@ -1106,7 +1112,7 @@ class StereoCalibrator(Calibrator):
                 params = self.get_parameters(lcorners, lboard, (lgray.shape[1], lgray.shape[0]))
                 if self.is_good_sample(params):
 		                #tung
-                    self.db.append( (params, lgray, rgray, pmsg) ) 
+                    self.db.append( (params, lgray, rgray, pmsg) )
                     self.good_corners.append( (lcorners, rcorners, lboard) )
                     print(("*** [TUNG] Added sample %d, p_x = %.3f, p_y = %.3f, p_size = %.3f, skew = %.3f" % tuple([len(self.db)] + params)))
 
@@ -1138,7 +1144,7 @@ class StereoCalibrator(Calibrator):
         """ Write images and calibration solution to a tarfile object """
         ims = ([("%010d-l.png"  % i, im) for i,(_, im, _, _) in enumerate(self.db)] +
                [("%010d-r.png" % i, im) for i,(_, _, im, _) in enumerate(self.db)])
-        
+
         def taradd(name, buf):
             if isinstance(buf, basestring):
                 s = StringIO(buf)
@@ -1152,19 +1158,25 @@ class StereoCalibrator(Calibrator):
 
         for (name, im) in ims:
             taradd(name, cv2.imencode(".png", im)[1].tostring())
-        
+
         #tung
         #tung
-        pcl = [("%010d.xyz"  % i, pl) for i,(_, _, _, pl) in enumerate(self.db)] 
+        pcl = [("%010d.xyz"  % i, pl) for i,(_, _, _, pl) in enumerate(self.db)]
         for (name, pl) in pcl:
 						s = ''
-						for point in sensor_msgs.point_cloud2.read_points(pl, skip_nans=True):
+						for point in sensor_msgs.point_cloud2.read_points(pl, field_names=['x', 'y', 'z', 'intensity'] , skip_nans=True):
 								pt_x = point[0]
 								pt_y = point[1]
 								pt_z = point[2]
-								s = s + str(pt_x) + ' ' + str(pt_y) + ' ' + str(pt_z) + '\n'
+								pt_i = point[3]
+								s = s + str(pt_x) + ' ' + str(pt_y) + ' ' + str(pt_z) +  ' ' + str(pt_i) + '\n'
+						# for point in sensor_msgs.point_cloud2.read_points(pl, skip_nans=True):
+						# 		pt_x = point[0]
+						# 		pt_y = point[1]
+						# 		pt_z = point[2]
+						# 		s = s + str(pt_x) + ' ' + str(pt_y) + ' ' + str(pt_z) + '\n'
 						taradd(name, s)
-            
+
         taradd('left.yaml', self.yaml("/left", self.l))
         taradd('right.yaml', self.yaml("/right", self.r))
         taradd('ost.txt', self.ost())
@@ -1176,7 +1188,7 @@ class StereoCalibrator(Calibrator):
 
         if not len(limages) == len(rimages):
             raise CalibrationException("Left, right images don't match. %d left images, %d right" % (len(limages), len(rimages)))
-        
+
         ##\todo Check that the filenames match and stuff
 
         self.cal(limages, rimages)
